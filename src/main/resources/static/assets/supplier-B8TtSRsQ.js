@@ -1,0 +1,1 @@
+import{r as e}from"./request-C9XMBhBr.js";const l=p=>e.get("/supplier/list",{params:p}),t=p=>e.post("/supplier",p),r=p=>e.put("/supplier",p),i=p=>e.delete(`/supplier/${p}`),u=()=>e.get("/supplier/all");export{t as a,u as b,i as d,l,r as u};
