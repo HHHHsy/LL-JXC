@@ -18,6 +18,9 @@ public class Product {
     private BigDecimal costPrice;
     private BigDecimal salePrice;
     private Integer stockQuantity;
+    /** 乐观锁版本号：库存读改写时防止并发丢失更新 */
+    @Version
+    private Integer version;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)

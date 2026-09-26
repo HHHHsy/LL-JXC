@@ -14,4 +14,7 @@ public interface SaleOrderService extends IService<SaleOrder> {
     Result updateOrder(SaleOrder order, List<SaleOrderDetail> details);
 
     Result shipStock(Long orderId, List<SaleOrderDetail> details);
+
+    /** 取消订单（仅待出库状态允许） */
+    Result cancelOrder(Long orderId);
 }

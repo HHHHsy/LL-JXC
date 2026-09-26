@@ -14,4 +14,7 @@ public interface PurchaseOrderService extends IService<PurchaseOrder> {
     Result updateOrder(PurchaseOrder order, List<PurchaseOrderDetail> details);
 
     Result receiveStock(Long orderId, List<PurchaseOrderDetail> details);
+
+    /** 取消订单（仅待入库状态允许） */
+    Result cancelOrder(Long orderId);
 }

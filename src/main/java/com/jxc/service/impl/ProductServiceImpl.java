@@ -12,22 +12,27 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
     @Override
     public boolean save(Product entity) {
-        QueryWrapper<Product> wrapper = new QueryWrapper<>();
-        wrapper.eq("code", entity.getCode());
-        if (baseMapper.selectCount(wrapper) > 0) {
-            throw new RuntimeException("编码已存在");
-        }
+        checkCodeUnique(entity.getCode(), null);
         return super.save(entity);
     }
 
     @Override
     public boolean updateById(Product entity) {
-        QueryWrapper<Product> wrapper = new QueryWrapper<>();
-        wrapper.eq("code", entity.getCode());
-        wrapper.ne("id", entity.getId());
-        if (baseMapper.selectCount(wrapper) > 0) {
-            throw new RuntimeException("编码已存在");
-        }
+        checkCodeUnique(entity.getCode(), entity.getId());
         return super.updateById(entity);
+    }
+
+    private void checkCodeUnique(String code, Long excludeId) {
+        if (code == null || code.trim().isEmpty()) {
+            return;
+        }
+        QueryWrapper<Product> wrapper = new QueryWrapper<>();
+        wrapper.eq("code", code);
+        if (excludeId != null) {
+            wrapper.ne("id", excludeId);
+        }
+        if (baseMapper.selectCount(wrapper) > 0) {
+            throw new RuntimeException("商品编码已存在");
+        }
     }
 }

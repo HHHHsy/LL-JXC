@@ -15,6 +15,8 @@ public class SaleOrderDetail {
     private Integer quantity;
     private Integer shippedQuantity;
     private BigDecimal salePrice;
+    /** 备注（打印在送货单的「备注」列） */
+    private String remark;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)

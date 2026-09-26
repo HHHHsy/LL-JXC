@@ -15,6 +15,8 @@ public class PurchaseOrderDetail {
     private Integer quantity;
     private Integer receivedQuantity;
     private BigDecimal costPrice;
+    /** 备注（Excel 导入时写入「参考适合车型」等信息） */
+    private String remark;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)

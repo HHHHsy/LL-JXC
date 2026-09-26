@@ -4,17 +4,57 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/jxc_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&connectionCollation=utf8mb4_unicode_ci
-    username: root
-    password: 123456
+    # 数据库连接支持环境变量覆盖，避免把生产口令写死在配置文件里：
+    #   DB_URL / DB_USERNAME / DB_PASSWORD
+    url: ${DB_URL:jdbc:mysql://localhost:3306/jxc_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+  servlet:
+    multipart:
+      # 采购清单 / 商品 Excel 上传限制
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 mybatis-plus:
+  # 自定义 SQL（报表、看板聚合）放在这里
+  mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       id-type: auto
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+
+# 业务自定义配置
+jxc:
+  # 低库存预警阈值（首页看板与统计口径共用）
+  low-stock-threshold: 10
+  # 登录令牌有效期（分钟），默认 8 小时
+  token:
+    expire-minutes: 480
+  # 允许跨域的前端来源；生产环境前后端同源部署时不会用到
+  cors:
+    allowed-origins: http://localhost:3000,http://127.0.0.1:3000
+  # 送货单（销售订单打印）抬头与页脚，按实际门店信息修改即可
+  delivery-note:
+    company-name: 巴马瓦尔塔蓄电池
+    title: 送货单
+    delivery-man: 罗意平
+    service-phone: 15207788763
+    service-address: 巴马环城路瓦尔塔蓄电池
+    footer-note: 请仔细核对产品型号数量，如有误请两日内提出，并出具证明，协商解决
+    # 明细不足时补齐的空行数（与纸质单据版式对齐）
+    min-rows: 4
+  # 针式打印机直连打印（后端渲染 Java2D → javax.print，无浏览器弹窗）
+  print:
+    # 打印机名称；留空 = 使用 Windows 默认打印机。可在「系统设置 → 打印设置」里选
+    printer-name: ""
+    # 纸张：dot-241-140 / dot-241-93 / dot-210-140 / a5-landscape / a4-landscape
+    paper: dot-241-140
+    # 份数（二联/三联复写纸填 1 即可）
+    copies: 1
+    # 打印字体与表格字号(pt)，针式打印建议 宋体 9
+    font: 宋体
+    font-size: 9
+    # 单次送印最长等待秒数：打印机离线/缺纸/驱动弹窗时按时中断并提示，避免请求一直挂着
+    timeout-seconds: 20

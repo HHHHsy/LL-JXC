@@ -21,21 +21,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
-        // SPA 兜底：所有页面路由交给 index.html
+        // SPA 兜底：所有「单段且不含点」的路径（即前端页面路由）都交给 index.html，
+        // 静态资源（含点号）与多段 /api 请求不受影响。新增前端路由无需再改这里。
         registry.addViewController("/").setViewName("forward:/index.html");
-        registry.addViewController("/dashboard").setViewName("forward:/index.html");
-        registry.addViewController("/product").setViewName("forward:/index.html");
-        registry.addViewController("/customer").setViewName("forward:/index.html");
-        registry.addViewController("/supplier").setViewName("forward:/index.html");
-        registry.addViewController("/purchase-order").setViewName("forward:/index.html");
-        registry.addViewController("/purchase-receive").setViewName("forward:/index.html");
-        registry.addViewController("/sale-order").setViewName("forward:/index.html");
-        registry.addViewController("/sale-ship").setViewName("forward:/index.html");
-        registry.addViewController("/inventory-query").setViewName("forward:/index.html");
-        registry.addViewController("/inventory-log").setViewName("forward:/index.html");
-        registry.addViewController("/inventory-check").setViewName("forward:/index.html");
-        registry.addViewController("/purchase-report").setViewName("forward:/index.html");
-        registry.addViewController("/sale-report").setViewName("forward:/index.html");
-        registry.addViewController("/login").setViewName("forward:/index.html");
+        registry.addViewController("/{path:[^\\.]*}").setViewName("forward:/index.html");
     }
 }

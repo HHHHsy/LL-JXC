@@ -1,1 +1,0 @@
-import{r}from"./request-C9XMBhBr.js";const t=e=>r.get("/purchase-order/list",{params:e}),c=e=>r.get(`/purchase-order/${e}`),o=e=>r.post("/purchase-order",e),d=e=>r.put("/purchase-order",e),u=e=>r.delete(`/purchase-order/${e}`),p=(e,s)=>r.post(`/purchase-order/${e}/receive`,s);export{o as a,u as d,c as g,t as l,p as r,d as u};

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jxc.mapper.DashboardMapper">
+
+    <select id="purchaseTrend" resultType="java.util.LinkedHashMap">
+        SELECT DATE_FORMAT(o.purchase_date, '%Y-%m')       AS month,
+               IFNULL(SUM(d.quantity * d.cost_price), 0)   AS amount
+        FROM purchase_order o
+                 JOIN purchase_order_detail d ON d.order_id = o.id
+        WHERE o.status = '已入库'
+          AND o.purchase_date &gt;= #{fromMonth}
+        GROUP BY DATE_FORMAT(o.purchase_date, '%Y-%m')
+        ORDER BY month
+    </select>
+
+    <select id="saleTrend" resultType="java.util.LinkedHashMap">
+        SELECT DATE_FORMAT(o.sale_date, '%Y-%m')          AS month,
+               IFNULL(SUM(d.quantity * d.sale_price), 0)  AS amount
+        FROM sale_order o
+                 JOIN sale_order_detail d ON d.order_id = o.id
+        WHERE o.status = '已出库'
+          AND o.sale_date &gt;= #{fromMonth}
+        GROUP BY DATE_FORMAT(o.sale_date, '%Y-%m')
+        ORDER BY month
+    </select>
+
+    <select id="categoryDistribution" resultType="java.util.LinkedHashMap">
+        SELECT IFNULL(NULLIF(TRIM(category), ''), '未分类') AS name,
+               COUNT(*)                                    AS value
+        FROM product
+        GROUP BY IFNULL(NULLIF(TRIM(category), ''), '未分类')
+        ORDER BY value DESC
+    </select>
+
+    <select id="recentLogs" resultType="java.util.LinkedHashMap">
+        SELECT l.change_time       AS changeTime,
+               l.change_type       AS changeType,
+               l.change_quantity   AS changeQuantity,
+               l.related_order_no  AS relatedOrderNo,
+               l.remark            AS remark,
+               IFNULL(p.name, '')  AS productName
+        FROM inventory_log l
+                 LEFT JOIN product p ON p.id = l.product_id
+        ORDER BY l.change_time DESC, l.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="topSaleProducts" resultType="java.util.LinkedHashMap">
+        SELECT IFNULL(p.name, '')                       AS productName,
+               IFNULL(SUM(d.shipped_quantity), 0)       AS quantity
+        FROM sale_order_detail d
+                 JOIN sale_order o ON o.id = d.order_id
+                 LEFT JOIN product p ON p.id = d.product_id
+        WHERE o.status = '已出库'
+          AND DATE_FORMAT(o.sale_date, '%Y-%m') = #{month}
+        GROUP BY d.product_id, p.name
+        ORDER BY quantity DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countLowStock" resultType="long">
+        SELECT COUNT(*)
+        FROM product
+        WHERE IFNULL(stock_quantity, 0) &lt; #{threshold}
+    </select>
+</mapper>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jxc.mapper.ReportMapper">
+
+    <!-- 采购/销售报表公共过滤条件：已取消的订单不计入报表；可按状态进一步筛选 -->
+    <sql id="purchaseFilters">
+        o.status != '已取消'
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND o.purchase_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND o.purchase_date &lt;= #{endDate}
+        </if>
+        <if test="supplierId != null">
+            AND o.supplier_id = #{supplierId}
+        </if>
+    </sql>
+
+    <sql id="saleFilters">
+        o.status != '已取消'
+        <if test="status != null and status != ''">
+            AND o.status = #{status}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND o.sale_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND o.sale_date &lt;= #{endDate}
+        </if>
+        <if test="customerId != null">
+            AND o.customer_id = #{customerId}
+        </if>
+    </sql>
+
+    <select id="selectPurchaseDetail" resultType="com.jxc.dto.PurchaseReportRow">
+        SELECT o.purchase_date        AS purchaseDate,
+               o.order_no             AS orderNo,
+               s.name                 AS supplierName,
+               p.name                 AS productName,
+               d.quantity             AS quantity,
+               d.received_quantity    AS receivedQuantity,
+               d.cost_price           AS costPrice,
+               d.quantity * d.cost_price AS subtotal
+        FROM purchase_order_detail d
+                 JOIN purchase_order o ON o.id = d.order_id
+                 LEFT JOIN supplier s ON s.id = o.supplier_id
+                 LEFT JOIN product p ON p.id = d.product_id
+        WHERE <include refid="purchaseFilters"/>
+        ORDER BY o.purchase_date DESC, o.id DESC, d.id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPurchaseDetail" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_order_detail d
+                 JOIN purchase_order o ON o.id = d.order_id
+        WHERE <include refid="purchaseFilters"/>
+    </select>
+
+    <select id="sumPurchaseDetail" resultType="java.util.LinkedHashMap">
+        SELECT IFNULL(SUM(d.quantity), 0)                  AS totalQuantity,
+               IFNULL(SUM(d.quantity * d.cost_price), 0)   AS totalAmount
+        FROM purchase_order_detail d
+                 JOIN purchase_order o ON o.id = d.order_id
+        WHERE <include refid="purchaseFilters"/>
+    </select>
+
+    <select id="selectSaleDetail" resultType="com.jxc.dto.SaleReportRow">
+        SELECT o.sale_date             AS saleDate,
+               o.order_no              AS orderNo,
+               c.name                  AS customerName,
+               p.name                  AS productName,
+               d.quantity              AS quantity,
+               d.shipped_quantity      AS shippedQuantity,
+               d.sale_price            AS salePrice,
+               d.quantity * d.sale_price AS subtotal
+        FROM sale_order_detail d
+                 JOIN sale_order o ON o.id = d.order_id
+                 LEFT JOIN customer c ON c.id = o.customer_id
+                 LEFT JOIN product p ON p.id = d.product_id
+        WHERE <include refid="saleFilters"/>
+        ORDER BY o.sale_date DESC, o.id DESC, d.id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSaleDetail" resultType="long">
+        SELECT COUNT(*)
+        FROM sale_order_detail d
+                 JOIN sale_order o ON o.id = d.order_id
+        WHERE <include refid="saleFilters"/>
+    </select>
+
+    <select id="sumSaleDetail" resultType="java.util.LinkedHashMap">
+        SELECT IFNULL(SUM(d.quantity), 0)                 AS totalQuantity,
+               IFNULL(SUM(d.quantity * d.sale_price), 0)  AS totalAmount
+        FROM sale_order_detail d
+                 JOIN sale_order o ON o.id = d.order_id
+        WHERE <include refid="saleFilters"/>
+    </select>
+</mapper>
