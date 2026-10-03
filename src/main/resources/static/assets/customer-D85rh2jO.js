@@ -1,0 +1,1 @@
+import{A as s}from"./index-BN5rD0mF.js";const o=t=>s.get("/customer/list",{params:t}),r=()=>s.get("/customer/all"),u=t=>s.post("/customer",t),m=t=>s.put("/customer",t),a=t=>s.delete(`/customer/${t}`);export{u as a,r as b,a as d,o as l,m as u};

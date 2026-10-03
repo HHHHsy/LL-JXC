@@ -6,7 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 数据库连接支持环境变量覆盖，避免把生产口令写死在配置文件里：
     #   DB_URL / DB_USERNAME / DB_PASSWORD
-    url: ${DB_URL:jdbc:mysql://localhost:3306/jxc_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci}
+    url: ${DB_URL:jdbc:mysql://192.168.1.7:3306/jxc_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
   servlet:
