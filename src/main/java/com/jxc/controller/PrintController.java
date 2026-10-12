@@ -3,6 +3,8 @@ package com.jxc.controller;
 import com.jxc.common.Result;
 import com.jxc.service.DeliveryNotePrintService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,5 +35,19 @@ public class PrintController {
                                     @RequestParam(required = false) String paper,
                                     @RequestParam(required = false) Integer copies) {
         return Result.success(deliveryNotePrintService.printDeliveryNote(orderId, printer, paper, copies));
+    }
+
+    /** 打印标定测试页（每 10mm 刻度网格，用于实测打印机原点偏移） */
+    @PostMapping("/test-page")
+    public Result printTestPage(@RequestParam(required = false) String printer) {
+        return Result.success(deliveryNotePrintService.printTestPage(printer));
+    }
+
+    /** 调试：导出发往打印机的光栅图 PNG（type=note|test） */
+    @GetMapping("/debug-raster")
+    public ResponseEntity<byte[]> debugRaster(@RequestParam String type,
+                                              @RequestParam(required = false) Long orderId) throws Exception {
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG)
+                .body(deliveryNotePrintService.debugRaster(type, orderId));
     }
 }

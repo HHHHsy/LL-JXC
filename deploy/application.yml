@@ -1,0 +1,16 @@
+# ============================================================
+#  业务机本地部署配置（打包进客户端安装包，放在 LLJXC.exe 同目录）
+#
+#  说明：业务机上装了 MySQL，数据库就在本机，所以用 localhost。
+#        改口令 / 端口只改这个文件即可，保存后重启 LLJXC.exe 生效。
+#        （只写需要覆盖的项，其余配置仍用程序内自带的默认值）
+# ============================================================
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/jxc_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci
+    username: root
+    password: 123456

@@ -9,6 +9,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.RenderingHints;
+import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
@@ -30,12 +31,32 @@ import java.util.Set;
  */
 public class DeliveryNoteRenderer implements Printable {
 
-    /** 列宽比例：序号 | 产品名称 | 型号规格 | 数量 | 单位 | 单价 | 金额 | 备注 */
-    private static final double[] WIDTH_RATIO = {0.05, 0.26, 0.18, 0.07, 0.07, 0.10, 0.11, 0.16};
+    /** 列宽比例：序号 | 产品名称 | 型号规格 | 数量 | 单位 | 单价 | 金额 | 备注（与网页预览的列宽一致） */
+    private static final double[] WIDTH_RATIO = {0.06, 0.28, 0.20, 0.08, 0.08, 0.10, 0.10, 0.10};
 
     private static final int ALIGN_LEFT = 0;
     private static final int ALIGN_CENTER = 1;
     private static final int ALIGN_RIGHT = 2;
+
+    /**
+     * 度量与字形轮廓统一使用这个「离屏」字形上下文。
+     *
+     * <p>为什么不能用绘制图形上的 {@code g.getFontMetrics()}：针式打印机驱动会把请求的字体
+     * <b>替换成设备字体</b>，此时打印图形的字体度量会比真实字体大（本机 Epson LQ-610KII 实测约 1.8~2 倍）。
+     * 于是出现「排版按大字号算、线条按 1:1 画」的错位：文字顶出单元格被裁（单据编号）、
+     * 被 {@link #fit} 提前省略（大写金额）、压到表格右边框（右下角看起来没封口）。
+     * 固定用这个离屏度量 + 用字形轮廓绘制（{@link #drawTextRun}），打印结果就与预览一致。</p>
+     */
+    private static final FontRenderContext MEASURE_FRC = createMeasureFrc();
+
+    private static FontRenderContext createMeasureFrc() {
+        Graphics2D offscreen = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
+        try {
+            return offscreen.getFontRenderContext();
+        } finally {
+            offscreen.dispose();
+        }
+    }
 
     private final DeliveryNote note;
     private final PaperPresets.Preset preset;
@@ -89,7 +110,9 @@ public class DeliveryNoteRenderer implements Printable {
         Graphics2D g = (Graphics2D) graphics;
         g.setColor(Color.BLACK);
 
-        double width = pageFormat.getImageableWidth();
+        // 右侧留 1pt 余量：可打印区右边界同时就是裁剪线，正好压在边界上的竖线在打印机上可能整条被丢掉
+        // （表现为表格右边框"没封口"），留一点余量最稳
+        double width = pageFormat.getImageableWidth() - 1.0;
         double height = pageFormat.getImageableHeight();
         double rowHeight = rowHeight();
         double tableHeadHeight = rowHeight * 1.15;
@@ -214,7 +237,7 @@ public class DeliveryNoteRenderer implements Printable {
         return y;
     }
 
-    /** 合计行：合计 |（数量）| 金额大写（跨列）| 金额小写 */
+    /** 合计行：合计 |（数量）| 金额(大写)（跨 单位~单价）| 金额 | 金额(小写)（与网页预览逐格一致） */
     private void drawTotalRow(Graphics2D g, double width, double y, double rowHeight) {
         double[] x = columnX(width);
         // 合计（跨 序号~型号规格 3 列）
@@ -226,16 +249,55 @@ public class DeliveryNoteRenderer implements Printable {
         g.drawRect((int) Math.round(x[3]), (int) Math.round(y),
                 (int) Math.round(x[4] - x[3]), (int) Math.round(rowHeight));
         drawTextCenteredInCell(g, String.valueOf(note.getTotalQuantity()), x[3], x[4], y, rowHeight);
-        // 金额大写（跨 单位~单价 列，字号略小以便放得下）
+        // 金额大写（跨 单位~单价 列）：一行放不下就折两行，不缩小、不省略
         g.drawRect((int) Math.round(x[4]), (int) Math.round(y),
                 (int) Math.round(x[6] - x[4]), (int) Math.round(rowHeight));
-        g.setFont(font(Font.PLAIN, Math.max(7, baseFontSize - 1)));
-        drawTextLeftInCell(g, "大写：" + nvl(note.getTotalAmountUpper()), x[4], x[6], y, rowHeight);
-        // 金额小写（跨 金额~备注 列）
+        drawUpperAmount(g, "金额(大写)：" + nvl(note.getTotalAmountUpper()), x[4], x[6], y, rowHeight);
+        // 金额小写（金额列右对齐）＋「金额(小写)」标签（备注列居中）：
+        // 金额列与备注列必须各自成格，不能合并（合并会让人以为金额列丢了）
         g.setFont(font(Font.BOLD, baseFontSize));
         g.drawRect((int) Math.round(x[6]), (int) Math.round(y),
-                (int) Math.round(width - x[6]), (int) Math.round(rowHeight));
-        drawTextRightInCell(g, money(note.getTotalAmount()), x[6], width, y, rowHeight);
+                (int) Math.round(x[7] - x[6]), (int) Math.round(rowHeight));
+        drawTextRightInCell(g, money(note.getTotalAmount()), x[6], x[7], y, rowHeight);
+        g.drawRect((int) Math.round(x[7]), (int) Math.round(y),
+                (int) Math.round(width - x[7]), (int) Math.round(rowHeight));
+        drawTextCenteredInCell(g, "金额(小写)", x[7], width, y, rowHeight);
+    }
+
+    /**
+     * 大写金额：一行放得下就一行（正文字号）；放不下就折成两行（略小字号）画进同一格。
+     * 绝不缩小到看不清、也绝不加省略号——大写金额必须完整。
+     */
+    private void drawUpperAmount(Graphics2D g, String text, double x1, double x2, double y, double rowHeight) {
+        double maxWidth = x2 - x1 - 5;
+        Font normal = font(Font.PLAIN, baseFontSize);
+        if (textWidth(normal, text) <= maxWidth) {
+            g.setFont(normal);
+            drawTextLeftInCell(g, text, x1, x2, y, rowHeight);
+            return;
+        }
+        Font small = font(Font.PLAIN, Math.min(baseFontSize, 8));
+        int split = splitForTwoLines(small, text, maxWidth);
+        g.setFont(small);
+        drawTextRun(g, text.substring(0, split), x1 + 2, y + rowHeight * 0.42);
+        drawTextRun(g, text.substring(split), x1 + 2, y + rowHeight * 0.92);
+    }
+
+    /** 折两行时的断点：优先断在「元」后（不拆散金额读法），否则从中间往后找第一个放得下的位置 */
+    private int splitForTwoLines(Font font, String text, double maxWidth) {
+        int total = text.length();
+        int yuan = text.indexOf('元');
+        if (yuan > 0 && yuan < total - 1
+                && textWidth(font, text.substring(0, yuan + 1)) <= maxWidth
+                && textWidth(font, text.substring(yuan + 1)) <= maxWidth) {
+            return yuan + 1;
+        }
+        for (int i = (total + 1) / 2; i < total; i++) {
+            if (textWidth(font, text.substring(0, i)) <= maxWidth) {
+                return i;
+            }
+        }
+        return Math.max(1, total - 1);
     }
 
     /** 按单元格绘制：每个单元格画自己的矩形，于是竖线与横线都完整；支持跨列 */
@@ -276,31 +338,30 @@ public class DeliveryNoteRenderer implements Printable {
     }
 
     private void drawText(Graphics2D g, String text, double x, double baseline) {
-        g.drawString(nvl(text), (float) x, (float) baseline);
+        drawTextRun(g, nvl(text), x, baseline);
     }
 
     private void drawCentered(Graphics2D g, String text, double width, double baseline) {
         if (text == null || text.isEmpty()) {
             return;
         }
-        int textWidth = g.getFontMetrics().stringWidth(text);
-        g.drawString(text, (float) Math.max(0, (width - textWidth) / 2), (float) baseline);
+        double textWidth = textWidth(g.getFont(), text);
+        drawTextRun(g, text, Math.max(0, (width - textWidth) / 2), baseline);
     }
 
     private void drawTextLeftInCell(Graphics2D g, String text, double x1, double x2, double y, double rowHeight) {
         if (text == null || text.isEmpty()) {
             return;
         }
-        g.drawString(fit(g, text, x2 - x1 - 4), (float) (x1 + 2), (float) (y + rowHeight * 0.72));
+        drawTextRun(g, fit(g, text, x2 - x1 - 4), x1 + 2, y + rowHeight * 0.72);
     }
 
     private void drawTextRightInCell(Graphics2D g, String text, double x1, double x2, double y, double rowHeight) {
         if (text == null || text.isEmpty()) {
             return;
         }
-        int w = g.getFontMetrics().stringWidth(text);
-        double x = Math.max(x1 + 2, x2 - 3 - w);
-        g.drawString(text, (float) x, (float) (y + rowHeight * 0.72));
+        double w = textWidth(g.getFont(), text);
+        drawTextRun(g, text, Math.max(x1 + 2, x2 - 3 - w), y + rowHeight * 0.72);
     }
 
     private void drawTextCenteredInCell(Graphics2D g, String text, double x1, double x2, double y, double rowHeight) {
@@ -308,24 +369,46 @@ public class DeliveryNoteRenderer implements Printable {
             return;
         }
         String fitted = fit(g, text, x2 - x1 - 4);
-        int w = g.getFontMetrics().stringWidth(fitted);
-        g.drawString(fitted, (float) (x1 + Math.max(1, (x2 - x1 - w) / 2)), (float) (y + rowHeight * 0.72));
+        double w = textWidth(g.getFont(), fitted);
+        drawTextRun(g, fitted, x1 + Math.max(1, (x2 - x1 - w) / 2), y + rowHeight * 0.72);
     }
 
     /** 超宽文本截断（保留省略号），避免压到下一列 */
     private String fit(Graphics2D g, String text, double maxWidth) {
-        if (g.getFontMetrics().stringWidth(text) <= maxWidth) {
+        if (textWidth(g.getFont(), text) <= maxWidth) {
             return text;
         }
         int len = text.length();
         while (len > 1) {
             String candidate = text.substring(0, len) + "…";
-            if (g.getFontMetrics().stringWidth(candidate) <= maxWidth) {
+            if (textWidth(g.getFont(), candidate) <= maxWidth) {
                 return candidate;
             }
             len--;
         }
         return text.substring(0, 1);
+    }
+
+    /**
+     * 用「字形轮廓」而不是 {@code drawString} 绘制文本。
+     *
+     * <p>针式打印机驱动会把请求的字体替换成设备字体，替换后的字形会明显变大（本机实测约 1.8~2 倍），
+     * 与版式里按真实字体算好的单元格宽度对不上，于是出现文字被裁、被 {@link #fit} 提前省略、压出右边框。
+     * 改成填充字形轮廓后，落纸的字形与度量都取自同一个字体对象，打印结果与预览一致。</p>
+     */
+    private void drawTextRun(Graphics2D g, String text, double x, double baseline) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        g.fill(g.getFont().createGlyphVector(MEASURE_FRC, text).getOutline((float) x, (float) baseline));
+    }
+
+    /** 文本宽度：固定用离屏度量，不受打印机驱动的设备字体替换影响 */
+    private double textWidth(Font font, String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return font.createGlyphVector(MEASURE_FRC, text).getLogicalBounds().getWidth();
     }
 
     private double rowHeight() {
@@ -409,6 +492,25 @@ public class DeliveryNoteRenderer implements Printable {
             return 1;
         }
         return 1 + (int) Math.ceil((items.size() - rowsFirst) / (double) rowsOther);
+    }
+
+    /**
+     * 在给定可打印高度下，首页内容实际占用的高度（pt），供打印时垂直居中使用。
+     * 与 {@link #print} 的分页口径保持一致（fixedTop=4 行 + 表头 + fixedBottom=4 行）。
+     */
+    public double contentHeightForAreaPt(double imageableHeightPt) {
+        double rh = rowHeight();
+        double head = rh * 1.15;
+        double fixedTop = rh * 4;
+        double fixedBottom = rh * 4;
+        int total = note.getItems().size();
+        int rowsFirst = Math.max(1, (int) Math.floor((imageableHeightPt - fixedTop - head - fixedBottom) / rh));
+        int rows = Math.min(total, rowsFirst);
+        // 抬头实际绘制高度：标题区 + 客户/日期两行（与 drawFirstPageHeader 的推进量一致）
+        double a = baseFontSize * 3.9;
+        double headerActual = (a + 2 * rh) / 2.0 + 2 * rh;
+        double bottomActual = rows >= total ? fixedBottom : rh; // 非末页只有「（明细续下页）」一行
+        return headerActual + rows * rh + bottomActual;
     }
 
     /** 便于测试：当前版式使用的行高 */

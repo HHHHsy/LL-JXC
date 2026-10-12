@@ -1,1 +1,0 @@
-import{B as e}from"./index-C5Fy_IV-.js";const l=p=>e.get("/supplier/list",{params:p}),t=()=>e.get("/supplier/all"),i=p=>e.post("/supplier",p),r=p=>e.put("/supplier",p),u=p=>e.delete(`/supplier/${p}`);export{i as a,t as b,u as d,l,r as u};

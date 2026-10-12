@@ -1,1 +1,0 @@
-import{A as e}from"./index-CFMo6DYk.js";const i=()=>e.get("/print/printers"),s=(t,r)=>e.post(`/print/delivery-note/${t}`,null,{params:r,timeout:6e4}),o=t=>e.put("/config/print",t);export{i as g,s as p,o as s};

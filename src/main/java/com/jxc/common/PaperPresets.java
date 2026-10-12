@@ -37,9 +37,16 @@ public final class PaperPresets {
         }
     }
 
+    /**
+     * 纸张预置。241mm 宽的连续纸右边距给到 39mm，是因为 82 列针打机（LQ-615KII，24 针）
+     * 的真实可打印宽度只有约 203～208mm，241mm 纸的两侧本来就有十几毫米是机械上印不到的
+     * （驱动自己报的档位里就有 w=208.3mm、w=203.6mm）。
+     * 左边距压到 2mm（而不是 8mm）是为了把内容整体往左让几毫米，避免右边框正好压在可打印带边缘被裁；
+     * 再往左压到 0 就会进机器的左死区，左边框反而会丢。
+     */
     public static final List<Preset> ALL = List.of(
-            new Preset("dot-241-140", "针式 241×140", 241, 140, 8, 6, 6, 6, true),
-            new Preset("dot-241-93", "针式 241×93", 241, 93, 8, 6, 5, 5, true),
+            new Preset("dot-241-140", "针式 241×140", 241, 140, 2, 39, 6, 6, true),
+            new Preset("dot-241-93", "针式 241×93", 241, 93, 2, 39, 5, 5, true),
             new Preset("dot-210-140", "针式 210×140", 210, 140, 7, 6, 6, 6, true),
             new Preset("a5-landscape", "普通 A5 横向", 210, 148, 10, 10, 8, 8, false),
             new Preset("a4-landscape", "普通 A4 横向", 297, 210, 12, 12, 10, 10, false)

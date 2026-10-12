@@ -2,6 +2,7 @@ package com.jxc.common;
 
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
+import javax.print.attribute.PrintRequestAttributeSet;
 import javax.print.attribute.PrintServiceAttributeSet;
 import javax.print.attribute.standard.PrinterMakeAndModel;
 import java.awt.print.PrinterException;
@@ -128,10 +129,22 @@ public final class PrinterSupport {
     }
 
     /**
-     * 送打印任务并限时等待：打印机卡住时中断任务并抛出可读的 {@link PrinterException}，
-     * 避免请求线程被无限期挂住（前端只会看到一句无意义的超时）。
+     * 送打印任务并限时等待（不带打印属性）。
+     *
+     * @see #runWithTimeout(PrinterJob, PrintRequestAttributeSet, int, String)
      */
     public static void runWithTimeout(PrinterJob job, int timeoutSeconds, String printerName) throws PrinterException {
+        runWithTimeout(job, null, timeoutSeconds, printerName);
+    }
+
+    /**
+     * 送打印任务并限时等待：打印机卡住时中断任务并抛出可读的 {@link PrinterException}，
+     * 避免请求线程被无限期挂住（前端只会看到一句无意义的超时）。
+     *
+     * @param attributes 送印属性（如打印分辨率），为空则用驱动默认
+     */
+    public static void runWithTimeout(PrinterJob job, PrintRequestAttributeSet attributes,
+                                      int timeoutSeconds, String printerName) throws PrinterException {
         int seconds = timeoutSeconds > 0 ? timeoutSeconds : 20;
         ExecutorService pool = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "delivery-note-print");
@@ -140,7 +153,11 @@ public final class PrinterSupport {
         });
         try {
             Future<?> future = pool.submit(() -> {
-                job.print();
+                if (attributes == null) {
+                    job.print();
+                } else {
+                    job.print(attributes);
+                }
                 return null;
             });
             future.get(seconds, TimeUnit.SECONDS);
